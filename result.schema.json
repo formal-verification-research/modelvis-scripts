@@ -1,0 +1,53 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"$id": "https://example.com/product.schema.json",
+	"title": "CVASResult",
+	"description": "Results for a Continuous-Time Vector Addition System",
+	"type": "object",
+	"properties": {
+		"dim":{
+			"type":"integer",
+			"description":"The number of species in the model",
+			"minimum":1
+		},
+		"frames" : {
+			"type":"object",
+			"properties":{
+				"timeStep":{
+					"type":"integer",
+					"minimum":1,
+					"description":"The time step for this probability snapshot"
+				},
+				"stateFrames":{
+					"type":"array",
+					"items":{
+						"type":"object",
+						"properties": {
+							"probability": {
+								"type":"number",
+								"minimum":0,
+								"maximum":1
+							},
+							"state":{
+								"type":"array",
+								"minItems":1,
+								"items":{
+									"type":"array",
+									"items":{
+										"type":"integer"
+									},
+									"minItems": {
+										"$ref": "#/properties/dim"
+									},
+									"maxItems": {
+										"$ref": "#/properties/dim"
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
