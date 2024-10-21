@@ -35,12 +35,6 @@
 									"type":"array",
 									"items":{
 										"type":"integer"
-									},
-									"minItems": {
-										"$ref": "#/properties/dim"
-									},
-									"maxItems": {
-										"$ref": "#/properties/dim"
 									}
 								}
 							}
