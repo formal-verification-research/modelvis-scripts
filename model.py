@@ -70,8 +70,13 @@ class CVASResult(object):
 		self.dim = dim
 		self.frames = frames
 
+#	def __init__(self, filename : str) -> None:
+#		with open(filename, 'r') as f:
+#			data = json.load(f)
+#			validate_data(data, result_schema)
+
 	def validate(self):
-		validate_data(self.to_dict(), cvas_schema)
+		validate_data(self.to_dict(), result_schema)
 
 class Entry:
 	def __init__(self, col : int, val : float):
@@ -158,7 +163,7 @@ class RandomAccessSparseMatrixBuilder:
 			assert(self.exit_rates[i] >= max_rate or math.isclose(max_rate, self.exit_rates[i]))
 
 class Explorer(object):
-	def __init__(self, filename : str, dim_max = 100) -> None:
+	def __init__(self, filename : str, dim_max = 5) -> None:
 		with open(filename, 'r') as f:
 			self.cvas = CVAS(json.loads(f.read()))
 		self.__currentState = self.cvas.initialState
