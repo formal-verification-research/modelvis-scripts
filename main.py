@@ -14,7 +14,8 @@ class NpEncoder(json.JSONEncoder):
 		return super(NpEncoder, self).default(obj)
 
 if __name__ == "__main__":
-	assert(len(sys.argv) == 2)
+	assert(len(sys.argv) >= 2)
+	export_transitions="--export_trans" in sys.argv
 	filename = sys.argv[1]
 	e = Explorer(filename)
 	# matrix = e.build()
@@ -43,3 +44,6 @@ if __name__ == "__main__":
 	cvr_json = json.dumps(asdict(cvr), cls=NpEncoder, indent='\t')
 	with open("output.json", 'w') as f:
 		f.write(cvr_json)
+
+	if export_transitions:
+		e.export_transitions("model_transitions")

@@ -162,6 +162,13 @@ class RandomAccessSparseMatrixBuilder:
 				print(f"Error: {self.exit_rates[i]} < {max_rate} (state index {i})")
 			assert(self.exit_rates[i] >= max_rate or math.isclose(max_rate, self.exit_rates[i]))
 
+	def export_transitions(self, outfile: str):
+		with open(outfile, 'w') as of:
+			for i in range(len(self.from_list)):
+				row = self.from_list[i]
+				for entry in row:
+					of.write(f"{i},{entry}")
+
 class Explorer(object):
 	def __init__(self, filename : str, dim_max = 5) -> None:
 		with open(filename, 'r') as f:
@@ -247,3 +254,6 @@ class Explorer(object):
 
 	def state(self, idx : int):
 		return self.__indexToState[idx]
+
+	def export_transitions(self, filename: str):
+		self.__matrixBuilder.export_transitions(filename)
