@@ -187,8 +187,8 @@ class Explorer(object):
 	def build(self):
 		# build with bound
 		ABSORBING_STATE = tuple([-1 for _ in self.cvas.initialState])
-		self.__exploredStates = set()
-		self.__exploredStates.add(ABSORBING_STATE)
+		self.__exploredStates = dict()
+		self.__exploredStates[ABSORBING_STATE] = 0
 		self.__matrixBuilder = RandomAccessSparseMatrixBuilder()
 		queue = [(self.cvas.initialState, 1)]
 		self.__stateToIndex[self.cvas.initialState] = 1
@@ -199,6 +199,7 @@ class Explorer(object):
 		while len(queue) > 0:
 			# dequeue the first state
 			s, idx = queue.pop()
+			assert(np.all([d >= 0 for d in s]))
 			# print(f"Exploring state {s} (idx: {idx})")
 			self.__exploredStates[s] = nextIdx
 			exitRate = 0.0
@@ -233,6 +234,7 @@ class Explorer(object):
 			if update.ignore:
 				# redirect to the absorbing state
 				successors.append((tuple([-1 for _ in state]), self.__rate(state, update.vector, update.rate)))
+				continue
 			nextCandidate = tuple(np.add(state, update.vector))
 			# print(f"Next candidate: {nextCandidate}")
 			if not np.all([d >= 0 and d <= self.__dim_max for d in nextCandidate]):
