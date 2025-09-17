@@ -24,7 +24,8 @@ if __name__ == "__main__":
 
 	cvr = CVASResult(3)
 
-	for timeStep in range(1, 11):
+	for timeStep in range(1, 2001):
+		timeStep = timeStep / 10
 		f = Frame(timeStep, [])
 		for state in range(stCount):
 			print(f"Checking state {state} for time step {timeStep}")

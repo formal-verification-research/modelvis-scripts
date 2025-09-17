@@ -25,9 +25,10 @@ class StateUpdate(object):
 	rate : int
 	vector : tuple
 
-	def __init__(self, rate, vector) -> None:
+	def __init__(self, rate, vector, needed=None) -> None:
 		self.rate = rate
 		self.vector = tuple(vector)
+		self.needed = needed
 
 @dataclass_json
 @dataclass
@@ -43,7 +44,7 @@ is contained in the file cvas.schema.json
 	def __init__(self, data : dict) -> None:
 		self.dim = data["dim"]
 		self.initialState = tuple(data["initialState"])
-		self.stateUpdates = [StateUpdate(d["rate"], d["vector"]) for d in data["stateUpdates"]]
+		self.stateUpdates = [StateUpdate(d["rate"], d["vector"], None if "needed" not in d else d["needed"]) for d in data["stateUpdates"]]
 
 	def __post_init__(self):
 		'''
@@ -167,10 +168,10 @@ class RandomAccessSparseMatrixBuilder:
 			for i in range(len(self.from_list)):
 				row = self.from_list[i]
 				for entry in row:
-					of.write(f"{i},{entry}")
+					of.write(f"{i},{entry}\n")
 
 class Explorer(object):
-	def __init__(self, filename : str, dim_max = 5) -> None:
+	def __init__(self, filename : str, dim_max = 50) -> None:
 		with open(filename, 'r') as f:
 			self.cvas = CVAS(json.loads(f.read()))
 		self.__currentState = self.cvas.initialState
@@ -191,7 +192,7 @@ class Explorer(object):
 		while len(queue) > 0:
 			# dequeue the first state
 			s, idx = queue.pop()
-			print(f"Exploring state {s} (idx: {idx})")
+			# print(f"Exploring state {s} (idx: {idx})")
 			self.__exploredStates[s] = nextIdx
 			exitRate = 0.0
 			# Enqueue successors
@@ -217,8 +218,16 @@ class Explorer(object):
 	def __successors(self, state : tuple) -> list:
 		successors = []
 		for update in self.cvas.stateUpdates:
+			# print(update)
+			if update.needed is not None and not np.all([state[i] < update.needed[i] for i in range(len(state))]):
+				# print("Ignoring update because needed is not satisfied")
+				# print(update.needed)
+				continue
 			nextCandidate = tuple(np.add(state, update.vector))
+			# print(f"Next candidate: {nextCandidate}")
 			if not np.all([d >= 0 and d <= self.__dim_max for d in nextCandidate]):
+				# print([d >= 0 and d <= self.__dim_max for d in nextCandidate])
+				# print("Ignoring update because outside of first orthant")
 				continue
 			successors.append((nextCandidate, self.__rate(state, update.vector, update.rate)))
 		return successors

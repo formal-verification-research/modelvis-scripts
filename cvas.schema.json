@@ -47,6 +47,23 @@
 								"$ref": "#/properties/dim"
 							}
 						}
+					},
+					"needed":{
+						"type":"array",
+						"minItems":1,
+						"optional":"true",
+						"items":{
+							"type":"array",
+							"items":{
+								"type":"integer"
+							},
+							"minItems": {
+								"$ref": "#/properties/dim"
+							},
+							"maxItems": {
+								"$ref": "#/properties/dim"
+							}
+						}
 					}
 				}
 			}
