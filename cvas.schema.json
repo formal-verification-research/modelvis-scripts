@@ -64,6 +64,10 @@
 								"$ref": "#/properties/dim"
 							}
 						}
+					},
+					"ignore":{
+						"type":"boolean",
+						"optional":"true"
 					}
 				}
 			}

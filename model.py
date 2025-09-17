@@ -22,13 +22,14 @@ def validate_data(data, schema):
 
 @dataclass
 class StateUpdate(object):
-	rate : int
-	vector : tuple
+	rate: int
+	vector: tuple
 
-	def __init__(self, rate, vector, needed=None) -> None:
+	def __init__(self, rate, vector, needed=None, ignore=False) -> None:
 		self.rate = rate
 		self.vector = tuple(vector)
 		self.needed = needed
+		self.ignore=ignore
 
 @dataclass_json
 @dataclass
@@ -37,14 +38,16 @@ class CVAS(object):
 A continuous time Vector Addition System. The specification for this object
 is contained in the file cvas.schema.json
 	'''
-	dim : int
-	initialState : tuple
-	stateUpdates : list
+	dim: int
+	initialState: tuple
+	stateUpdates: list
 
-	def __init__(self, data : dict) -> None:
+	def __init__(self, data: dict) -> None:
 		self.dim = data["dim"]
 		self.initialState = tuple(data["initialState"])
-		self.stateUpdates = [StateUpdate(d["rate"], d["vector"], None if "needed" not in d else d["needed"]) for d in data["stateUpdates"]]
+		self.stateUpdates = [StateUpdate(d["rate"], d["vector"],
+								None if "needed" not in d else d["needed"],
+								False if "ignore" not in d else bool(d["ignore"])) for d in data["stateUpdates"]]
 
 	def __post_init__(self):
 		'''
@@ -54,24 +57,24 @@ is contained in the file cvas.schema.json
 
 @dataclass
 class Frame(object):
-	timeStep : int
-	stateFrames : list
+	timeStep: int
+	stateFrames: list
 
 @dataclass
 class StateFrame(object):
-	state : tuple
-	probability : float
+	state: tuple
+	probability: float
 
 @dataclass
 class CVASResult(object):
-	dim : int
-	frames : list
+	dim: int
+	frames: list
 
 	def __init__(self, dim, frames=[].copy()) -> None:
 		self.dim = dim
 		self.frames = frames
 
-#	def __init__(self, filename : str) -> None:
+#	def __init__(self, filename: str) -> None:
 #		with open(filename, 'r') as f:
 #			data = json.load(f)
 #			validate_data(data, result_schema)
@@ -80,9 +83,9 @@ class CVASResult(object):
 		validate_data(self.to_dict(), result_schema)
 
 class Entry:
-	def __init__(self, col : int, val : float):
-		self.col : int = col
-		self.val : float = val
+	def __init__(self, col: int, val: float):
+		self.col: int = col
+		self.val: float = val
 
 	def __eq__(self, other):
 		return other.col == self.col
@@ -110,7 +113,7 @@ class RandomAccessSparseMatrixBuilder:
 		self.from_list = []
 		self.exit_rates = []
 
-	def add_next_value(self, row : int, col : int, val : float):
+	def add_next_value(self, row: int, col: int, val: float):
 		while len(self.from_list) <= row:
 			self.from_list.append([])
 		self.from_list[row].append(Entry(col, val))
@@ -144,7 +147,7 @@ class RandomAccessSparseMatrixBuilder:
 	def size(self):
 		return len(self.from_list)
 
-	def add_exit_rate(self, idx : int, rate : float):
+	def add_exit_rate(self, idx: int, rate: float):
 		while len(self.exit_rates) <= idx:
 			self.exit_rates.append(None)
 		self.exit_rates[idx] = rate
@@ -171,7 +174,7 @@ class RandomAccessSparseMatrixBuilder:
 					of.write(f"{i},{entry}\n")
 
 class Explorer(object):
-	def __init__(self, filename : str, dim_max = 50) -> None:
+	def __init__(self, filename: str, dim_max = 50) -> None:
 		with open(filename, 'r') as f:
 			self.cvas = CVAS(json.loads(f.read()))
 		self.__currentState = self.cvas.initialState
@@ -183,12 +186,16 @@ class Explorer(object):
 
 	def build(self):
 		# build with bound
-		self.__exploredStates = dict()
+		ABSORBING_STATE = tuple([-1 for _ in self.cvas.initialState])
+		self.__exploredStates = set()
+		self.__exploredStates.add(ABSORBING_STATE)
 		self.__matrixBuilder = RandomAccessSparseMatrixBuilder()
-		queue = [(self.cvas.initialState, 0)]
-		self.__stateToIndex[self.cvas.initialState] = 0
-		self.__indexToState[0] = self.cvas.initialState
-		nextIdx = 1
+		queue = [(self.cvas.initialState, 1)]
+		self.__stateToIndex[self.cvas.initialState] = 1
+		self.__stateToIndex[ABSORBING_STATE] = 0
+		self.__indexToState[1] = self.cvas.initialState
+		self.__indexToState[0] = ABSORBING_STATE
+		nextIdx = 2
 		while len(queue) > 0:
 			# dequeue the first state
 			s, idx = queue.pop()
@@ -215,7 +222,7 @@ class Explorer(object):
 		self.__matrixBuilder.assert_all_entries_correct()
 		return self.__matrixBuilder.build()
 
-	def __successors(self, state : tuple) -> list:
+	def __successors(self, state: tuple) -> list:
 		successors = []
 		for update in self.cvas.stateUpdates:
 			# print(update)
@@ -223,6 +230,9 @@ class Explorer(object):
 				# print("Ignoring update because needed is not satisfied")
 				# print(update.needed)
 				continue
+			if update.ignore:
+				# redirect to the absorbing state
+				successors.append((tuple([-1 for _ in state]), self.__rate(state, update.vector, update.rate)))
 			nextCandidate = tuple(np.add(state, update.vector))
 			# print(f"Next candidate: {nextCandidate}")
 			if not np.all([d >= 0 and d <= self.__dim_max for d in nextCandidate]):
@@ -232,7 +242,7 @@ class Explorer(object):
 			successors.append((nextCandidate, self.__rate(state, update.vector, update.rate)))
 		return successors
 
-	def __rate(self, state : tuple, update : tuple, rConst : float):
+	def __rate(self, state: tuple, update: tuple, rConst: float):
 		assert(len(state) == len(update))
 		return rConst * np.prod([state[i] ** max(-update[i], 0) for i in range(len(state))])
 
@@ -261,7 +271,7 @@ class Explorer(object):
 		model = stormpy.storage.SparseCtmc(components)
 		return model
 
-	def state(self, idx : int):
+	def state(self, idx: int):
 		return self.__indexToState[idx]
 
 	def export_transitions(self, filename: str):
