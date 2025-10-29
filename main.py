@@ -24,6 +24,9 @@ if __name__ == "__main__":
 
 	cvr = CVASResult(3)
 
+	env = stormpy.Environment()
+	env.solver_environment.native_solver_environment.precision = stormpy.Rational(1e-100)
+
 	for timeStep in range(1, 2001):
 		timeStep = timeStep / 10
 		f = Frame(timeStep, [])
