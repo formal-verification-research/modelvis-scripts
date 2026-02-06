@@ -16,8 +16,9 @@ class NpEncoder(json.JSONEncoder):
 if __name__ == "__main__":
 	assert(len(sys.argv) >= 2)
 	export_transitions="--export_trans" in sys.argv
+	ignore_abs = "--ignore_abs" in sys.argv
 	filename = sys.argv[1]
-	e = Explorer(filename)
+	e = Explorer(filename, use_abs = not ignore_abs)
 	# matrix = e.build()
 	model = e.createModel()
 	stCount = e.stateCount()

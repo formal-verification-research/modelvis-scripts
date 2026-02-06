@@ -7,6 +7,7 @@ import numpy as np
 
 from stormpy import SparseMatrixBuilder, StateLabeling, SparseModelComponents
 import stormpy
+import math
 
 with open("./cvas.schema.json", "r") as f:
 	cvas_schema = json.load(f)
@@ -174,7 +175,7 @@ class RandomAccessSparseMatrixBuilder:
 					of.write(f"{i},{entry}\n")
 
 class Explorer(object):
-	def __init__(self, filename: str, dim_max = 50) -> None:
+	def __init__(self, filename: str, dim_max = 50, use_abs: bool = True) -> None:
 		with open(filename, 'r') as f:
 			self.cvas = CVAS(json.loads(f.read()))
 		self.__currentState = self.cvas.initialState
@@ -183,28 +184,42 @@ class Explorer(object):
 		self.__indexToState = dict() # could use an array. am lazy
 		self.__dim_max = dim_max
 		self.__matrixBuilder = None
+		self.__use_abs = use_abs
 
 	def build(self):
 		# build with bound
 		ABSORBING_STATE = tuple([-1 for _ in self.cvas.initialState])
 		self.__exploredStates = dict()
-		self.__exploredStates[ABSORBING_STATE] = 0
+		if self.__use_abs:
+			self.__exploredStates[ABSORBING_STATE] = 0
 		self.__matrixBuilder = RandomAccessSparseMatrixBuilder()
-		queue = [(self.cvas.initialState, 1)]
-		self.__stateToIndex[self.cvas.initialState] = 1
-		self.__stateToIndex[ABSORBING_STATE] = 0
-		self.__indexToState[1] = self.cvas.initialState
-		self.__indexToState[0] = ABSORBING_STATE
-		nextIdx = 2
+
+		if self.__use_abs:
+			queue = [(self.cvas.initialState, 1)]
+			self.__stateToIndex[self.cvas.initialState] = 1
+			self.__stateToIndex[ABSORBING_STATE] = 0
+			self.__indexToState[1] = self.cvas.initialState
+			self.__indexToState[0] = ABSORBING_STATE
+			nextIdx = 2
+		else:
+			queue = [(self.cvas.initialState, 0)]
+			nextIdx = 1
 		while len(queue) > 0:
 			# dequeue the first state
 			s, idx = queue.pop()
+			# print(f"\rExploring state with ID {idx}...", end="")
 			assert(np.all([d >= 0 for d in s]))
 			# print(f"Exploring state {s} (idx: {idx})")
 			self.__exploredStates[s] = nextIdx
 			exitRate = 0.0
+			successors = self.__successors(s)
+			if len(successors) == 0:
+				# Create a self loop
+				self.__matrixBuilder.add_next_value(idx, idx, 1.0)
+				self.__matrixBuilder.add_exit_rate(idx, 1.0)
+				continue
 			# Enqueue successors
-			for sNxt, rate in self.__successors(s):
+			for sNxt, rate in successors:
 				exitRate += rate
 				# Choose the next index if it exists
 				succIdx = None
@@ -220,6 +235,7 @@ class Explorer(object):
 				if not sNxt in self.__exploredStates:
 					queue.append((sNxt, succIdx))
 			self.__matrixBuilder.add_exit_rate(idx, exitRate)
+		# print("finished.")
 		self.__matrixBuilder.assert_all_entries_correct()
 		return self.__matrixBuilder.build()
 
@@ -231,7 +247,7 @@ class Explorer(object):
 				# print("Ignoring update because needed is not satisfied")
 				# print(update.needed)
 				continue
-			if update.ignore:
+			if update.ignore and self.__use_abs:
 				# redirect to the absorbing state
 				successors.append((tuple([-1 for _ in state]), self.__rate(state, update.vector, update.rate)))
 				continue
@@ -258,7 +274,10 @@ class Explorer(object):
 		labeling = StateLabeling(self.__matrixBuilder.size())
 		# Add the initial state
 		labeling.add_label("init")
-		labeling.add_label_to_state("init", 0)
+		if self.__use_abs:
+			labeling.add_label_to_state("init", 1)
+		else:
+			labeling.add_label_to_state("init", 0)
 		for i in range(self.__matrixBuilder.size()):
 			label = f"state_{i}"
 			labeling.add_label(label)
