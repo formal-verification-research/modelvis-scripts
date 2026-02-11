@@ -244,19 +244,19 @@ class Explorer(object):
 		successors = []
 		for update in self.cvas.stateUpdates:
 			# print(update)
-			if update.needed is not None and not np.all([state[i] < update.needed[i] for i in range(len(state))]):
-				# print("Ignoring update because needed is not satisfied")
-				# print(update.needed)
+			if update.needed is not None and not np.all([state[i] <= update.needed[i] for i in range(len(state))]):
+				print("Ignoring update because needed is not satisfied")
+				print(update.needed)
 				continue
 			if update.ignore and self.__use_abs:
 				# redirect to the absorbing state
 				successors.append((tuple([-1 for _ in state]), self.__rate(state, update.vector, update.rate)))
 				continue
 			nextCandidate = tuple(np.add(state, update.vector))
-			# print(f"Next candidate: {nextCandidate}")
+			print(f"Next candidate: {nextCandidate}")
 			if not np.all([d >= 0 and d <= self.__dim_max for d in nextCandidate]):
 				# print([d >= 0 and d <= self.__dim_max for d in nextCandidate])
-				# print("Ignoring update because outside of first orthant")
+				print("Ignoring update because outside of first orthant")
 				continue
 			successors.append((nextCandidate, self.__rate(state, update.vector, update.rate)))
 		return successors
