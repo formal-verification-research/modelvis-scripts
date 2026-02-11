@@ -204,6 +204,7 @@ class Explorer(object):
 		else:
 			queue = [(self.cvas.initialState, 0)]
 			nextIdx = 1
+			self.__indexToState[0] = self.cvas.initialState
 		while len(queue) > 0:
 			# dequeue the first state
 			s, idx = queue.pop()
