@@ -208,7 +208,7 @@ class Explorer(object):
 		while len(queue) > 0:
 			# dequeue the first state
 			s, idx = queue.pop()
-			# print(f"\rExploring state with ID {idx}...", end="")
+			print(f"\rExploring state with ID {idx}...", end="")
 			assert(np.all([d >= 0 for d in s]))
 			# print(f"Exploring state {s} (idx: {idx})")
 			self.__exploredStates[s] = nextIdx
@@ -236,27 +236,21 @@ class Explorer(object):
 				if not sNxt in self.__exploredStates:
 					queue.append((sNxt, succIdx))
 			self.__matrixBuilder.add_exit_rate(idx, exitRate)
-		# print("finished.")
+		print("finished.")
 		self.__matrixBuilder.assert_all_entries_correct()
 		return self.__matrixBuilder.build()
 
 	def __successors(self, state: tuple) -> list:
 		successors = []
 		for update in self.cvas.stateUpdates:
-			# print(update)
 			if update.needed is not None and not np.all([state[i] <= update.needed[i] for i in range(len(state))]):
-				print("Ignoring update because needed is not satisfied")
-				print(update.needed)
 				continue
 			if update.ignore and self.__use_abs:
 				# redirect to the absorbing state
 				successors.append((tuple([-1 for _ in state]), self.__rate(state, update.vector, update.rate)))
 				continue
 			nextCandidate = tuple(np.add(state, update.vector))
-			print(f"Next candidate: {nextCandidate}")
 			if not np.all([d >= 0 and d <= self.__dim_max for d in nextCandidate]):
-				# print([d >= 0 and d <= self.__dim_max for d in nextCandidate])
-				print("Ignoring update because outside of first orthant")
 				continue
 			successors.append((nextCandidate, self.__rate(state, update.vector, update.rate)))
 		return successors

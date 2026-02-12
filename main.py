@@ -32,7 +32,7 @@ if __name__ == "__main__":
 		timeStep = timeStep / 10
 		f = Frame(timeStep, [])
 		for state in range(stCount):
-			print(f"Checking state {state} for time step {timeStep}...", end="")
+			# print(f"Checking state {state} for time step {timeStep}...", end="")
 			propStr = f"P=? [ F={timeStep} \"state_{state}\" ]"
 			prop = stormpy.parse_properties(propStr)[0]
 			# The reason we only check initial states is because this is from the
@@ -41,7 +41,7 @@ if __name__ == "__main__":
 			result = stormpy.check_model_sparse(model, prop, only_initial_states=True)
 			# TODO: Add this to a CVAS result
 			p = result.at(0)
-			print(f"P = {p}")
+			# print(f"P = {p}")
 			sf = StateFrame(e.state(state), p)
 			f.stateFrames.append(sf)
 		cvr.frames.append(f)
