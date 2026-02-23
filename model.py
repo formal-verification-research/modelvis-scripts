@@ -26,11 +26,12 @@ class StateUpdate(object):
 	rate: int
 	vector: tuple
 
-	def __init__(self, rate, vector, needed=None, ignore=False) -> None:
+	def __init__(self, rate, vector, needed=None, ignore=False, reactions=None) -> None:
 		self.rate = rate
 		self.vector = tuple(vector)
 		self.needed = needed
 		self.ignore=ignore
+		self.rxn_id = reactions.get("id") if isinstance(reactions, dict) else None
 
 @dataclass_json
 @dataclass
@@ -46,9 +47,11 @@ is contained in the file cvas.schema.json
 	def __init__(self, data: dict) -> None:
 		self.dim = data["dim"]
 		self.initialState = tuple(data["initialState"])
-		self.stateUpdates = [StateUpdate(d["rate"], d["vector"],
-								None if "needed" not in d else d["needed"],
-								False if "ignore" not in d else bool(d["ignore"])) for d in data["stateUpdates"]]
+		self.stateUpdates = [
+			StateUpdate(d["rate"], d["vector"],
+			None if "needed" not in d else d["needed"],
+			False if "ignore" not in d else bool(d["ignore"]), d.get("reactions")) for d in data["stateUpdates"]
+		]
 
 	def __post_init__(self):
 		'''
@@ -175,7 +178,7 @@ class RandomAccessSparseMatrixBuilder:
 					of.write(f"{i},{entry}\n")
 
 class Explorer(object):
-	def __init__(self, filename: str, dim_max = 50, use_abs: bool = True) -> None:
+	def __init__(self, filename: str, dim_max = 20, use_abs: bool = True) -> None:
 		with open(filename, 'r') as f:
 			self.cvas = CVAS(json.loads(f.read()))
 		self.__currentState = self.cvas.initialState
@@ -185,6 +188,7 @@ class Explorer(object):
 		self.__dim_max = dim_max
 		self.__matrixBuilder = None
 		self.__use_abs = use_abs
+		self.__edge_reaction = {}
 
 	def build(self):
 		# build with bound
@@ -220,7 +224,7 @@ class Explorer(object):
 				self.__matrixBuilder.add_exit_rate(idx, 1.0)
 				continue
 			# Enqueue successors
-			for sNxt, rate in successors:
+			for sNxt, rate, upd in successors:
 				exitRate += rate
 				# Choose the next index if it exists
 				succIdx = None
@@ -232,6 +236,9 @@ class Explorer(object):
 					self.__stateToIndex[sNxt] = succIdx
 					self.__indexToState[succIdx] = sNxt
 				self.__matrixBuilder.add_next_value(idx, succIdx, rate)
+				 # store reaction label per edge (assuming no overlaps)
+				if (idx, succIdx) not in self.__edge_reaction:
+					self.__edge_reaction[(idx, succIdx)] = upd.rxn_id
 				# Only enqueue states we haven't explored yet
 				if not sNxt in self.__exploredStates:
 					queue.append((sNxt, succIdx))
@@ -247,12 +254,12 @@ class Explorer(object):
 				continue
 			if update.ignore and self.__use_abs:
 				# redirect to the absorbing state
-				successors.append((tuple([-1 for _ in state]), self.__rate(state, update.vector, update.rate)))
+				successors.append((tuple([-1 for _ in state]), self.__rate(state, update.vector, update.rate), update))
 				continue
 			nextCandidate = tuple(np.add(state, update.vector))
 			if not np.all([d >= 0 and d <= self.__dim_max for d in nextCandidate]):
 				continue
-			successors.append((nextCandidate, self.__rate(state, update.vector, update.rate)))
+			successors.append((nextCandidate, self.__rate(state, update.vector, update.rate), update))
 		return successors
 
 	def __rate(self, state: tuple, update: tuple, rConst: float):
@@ -291,4 +298,33 @@ class Explorer(object):
 		return self.__indexToState[idx]
 
 	def export_transitions(self, filename: str):
-		self.__matrixBuilder.export_transitions(filename)
+		"""
+			Writes:
+			  {
+				"states": [[...], ...],
+				"transitions": [
+				  {"source": i, "target": j, "rate": r, "reaction": "R1"},
+				  ...
+				]
+			  }
+			"""
+		if self.__matrixBuilder is None:
+			raise Exception("Call build() or createModel() before exporting.")
+
+		# states in index order
+		n_states = max(self.__indexToState.keys()) + 1 if self.__indexToState else 0
+		states = [[int(x) for x in self.__indexToState[i]] for i in range(n_states)]
+
+		transitions = []
+		for src, row in enumerate(self.__matrixBuilder.from_list):
+			for entry in row:
+				tgt = int(entry.col)
+				transitions.append({
+					"source": int(src),
+					"target": tgt,
+					"rate": float(entry.val),
+					"reaction": self.__edge_reaction.get((int(src), tgt))
+				})
+
+		with open(filename, "w", encoding="utf-8") as f:
+			json.dump({"states": states, "transitions": transitions}, f, indent=4)

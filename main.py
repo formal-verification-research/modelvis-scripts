@@ -48,8 +48,8 @@ if __name__ == "__main__":
 
 	# write this shit to a file
 	cvr_json = json.dumps(asdict(cvr), cls=NpEncoder, indent='\t')
-	with open("output.json", 'w') as f:
+	with open("model_prob.json", 'w') as f:
 		f.write(cvr_json)
 
 	if export_transitions:
-		e.export_transitions("model_transitions")
+		e.export_transitions("model_transitions.json")

@@ -1,0 +1,34 @@
+{
+  "$schema": "cvas.schema.json",
+  "dim": 4,
+  "bound": 100,
+  "initialState": [0, 0, 0, 0],
+  "dimLabels":["A", "B", "C", "D"],
+  "stateUpdates": [
+    {
+      "rate": 0.1,
+      "vector": [1, 0, 0, 0],
+      "reactions": { "id": "R1", "formula": "0 -> A" }
+    },
+    {
+      "rate": 0.1,
+      "vector": [-1, 1, 0, 0],
+      "reactions": { "id": "R2", "formula": "A -> B" }
+    },
+    {
+      "rate": 0.1,
+      "vector": [0, -1, 1, 0],
+      "reactions": { "id": "R3", "formula": "B -> C" }
+    },
+    {
+      "rate": 0.1,
+      "vector": [-1, 0, -1, 1],
+      "reactions": { "id": "R4", "formula": "A + C -> D" }
+    },
+    {
+      "rate": 100.0,
+      "vector": [-1, 0, 0, 0],
+      "reactions": { "id": "R5", "formula": "A -> 0" }
+    }
+  ]
+}
