@@ -337,4 +337,14 @@ class PrismExplorer(Explorer):
 
 	def state(self, idx: int):
 		assert self.__prism_model is not None
-		return self.__prism_model.states[idx].valuation
+		return "No valuations available"
+		# return self.__prism_model.states[idx].valuations
+
+	def export_transitions(self, filename: str):
+		assert self.__matrixBuilder is not None
+		self.__matrixBuilder.export_transitions(filename)
+
+	def stateCount(self) -> int:
+		if self.__matrixBuilder is None:
+			raise Exception("Must build model first!")
+		return self.__matrixBuilder.size()
