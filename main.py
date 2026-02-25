@@ -22,26 +22,23 @@ if __name__ == "__main__":
 	filename = sys.argv[1]
 	model = None
 	stCount = None
-	get_state_lambda = None
+	e = None
 	if not use_prism:
+		print("Using custom JSON format")
 		e = Explorer(filename, use_abs=not ignore_abs)
-		# matrix = e.build()
-		model = e.createModel()
-		stCount = e.stateCount()
-		get_state_lambda = e.state
 	else:
+		print(f"Loading prism model {filename}")
 		csl = None
 		for arg in sys.argv:
 			if arg.startswith("--csl="):
 				csl = arg.replace("--csl=", "")
 		if csl is None:
 			raise Exception("Must provide a CSL property if using PRISM mode.")
-		pe = PrismExplorer(filename, csl)
-		get_state_lambda = pe.state
-		model = pe.createModel()
-		stCount = pe.stateCount()
+		e = PrismExplorer(filename, csl)
+	model = e.createModel()
+	stCount = e.stateCount()
 
-	assert model is not None and stCount is not None and get_state_lambda is not None
+	assert model is not None and stCount is not None and e is not None
 
 	cvr = CVASResult(3)
 
@@ -62,7 +59,7 @@ if __name__ == "__main__":
 			# TODO: Add this to a CVAS result
 			p = result.at(0)
 			# print(f"P = {p}")
-			sf = StateFrame(get_state_lambda(state), p)
+			sf = StateFrame(e.state(state), p)
 			f.stateFrames.append(sf)
 		cvr.frames.append(f)
 

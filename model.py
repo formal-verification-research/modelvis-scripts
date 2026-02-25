@@ -298,7 +298,7 @@ class Explorer(object):
 class PrismExplorer(Explorer):
 	def __init__(self, prism_filename: str, csl_prop: str) -> None:
 		# No need to call super.
-		self.__program = stormpy.parse_prism_program(prism_filename)
+		self.__program = stormpy.parse_prism_program(prism_filename, prism_compat=True)
 		self.__properties = stormpy.parse_properties_for_prism_program(csl_prop, self.__program, None)
 		self.__matrixBuilder = None
 		self.__init_ids = []
@@ -314,10 +314,11 @@ class PrismExplorer(Explorer):
 			# We only work on deterministic models. No mdps
 			assert len(state.actions) == 1
 			row = state.id
-			for transition in state.actions[0]:
-				col = transition.column
-				rate = transition.value()
-				self.__matrixBuilder.add_next_value(row, col, rate)
+			for action in state.actions:
+				for transition in action.transitions:
+					col = transition.column
+					rate = transition.value()
+					self.__matrixBuilder.add_next_value(row, col, rate)
 		self.__prism_model = prism_model
 		return self.__matrixBuilder.build()
 
@@ -328,7 +329,7 @@ class PrismExplorer(Explorer):
 		labeling.add_label("init")
 		for init_id in self.__init_ids:
 			labeling.add_label_to_state("init", init_id)
-		for state in self.__prism_model:
+		for state in self.__prism_model.states:
 			label = f"state_{state.id}"
 			labeling.add_label(label)
 			labeling.add_label_to_state(label, state.id)
