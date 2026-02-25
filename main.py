@@ -13,15 +13,35 @@ class NpEncoder(json.JSONEncoder):
 			return int(obj)
 		return super(NpEncoder, self).default(obj)
 
+
 if __name__ == "__main__":
-	assert(len(sys.argv) >= 2)
-	export_transitions="--export_trans" in sys.argv
+	assert (len(sys.argv) >= 2)
+	export_transitions = "--export_trans" in sys.argv
 	ignore_abs = "--ignore_abs" in sys.argv
+	use_prism = "--prism" in sys.argv
 	filename = sys.argv[1]
-	e = Explorer(filename, use_abs = not ignore_abs)
-	# matrix = e.build()
-	model = e.createModel()
-	stCount = e.stateCount()
+	model = None
+	stCount = None
+	get_state_lambda = None
+	if not use_prism:
+		e = Explorer(filename, use_abs=not ignore_abs)
+		# matrix = e.build()
+		model = e.createModel()
+		stCount = e.stateCount()
+		get_state_lambda = e.state
+	else:
+		csl = None
+		for arg in sys.argv:
+			if arg.startswith("--csl="):
+				csl = arg.replace("--csl=", "")
+		if csl is None:
+			raise Exception("Must provide a CSL property if using PRISM mode.")
+		pe = PrismExplorer(filename, csl)
+		get_state_lambda = pe.state
+		model = pe.createModel()
+		stCount = pe.stateCount()
+
+	assert model is not None and stCount is not None and get_state_lambda is not None
 
 	cvr = CVASResult(3)
 
@@ -42,7 +62,7 @@ if __name__ == "__main__":
 			# TODO: Add this to a CVAS result
 			p = result.at(0)
 			# print(f"P = {p}")
-			sf = StateFrame(e.state(state), p)
+			sf = StateFrame(get_state_lambda(state), p)
 			f.stateFrames.append(sf)
 		cvr.frames.append(f)
 
