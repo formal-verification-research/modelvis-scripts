@@ -302,13 +302,18 @@ class PrismExplorer(Explorer):
 		self.__properties = stormpy.parse_properties_for_prism_program(csl_prop, self.__program, None)
 		self.__matrixBuilder = None
 		self.__init_ids = []
+		self.__valuations = []
 
 	def build(self):
+		options = stormpy.BuilderOptions()
+		options.set_build_state_valuations()
 		self.__init_ids = []
-		prism_model = stormpy.build_model(self.__program, self.__properties)
+		self.__valuations = []
+		prism_model = stormpy.build_sparse_model_with_options(self.__program, options)
 		# We do not need to do a DFS or anything similar because we already have all of the states to iterate over
 		self.__matrixBuilder = RandomAccessSparseMatrixBuilder()
 		for state in prism_model.states:
+			self.__valuations.append(state.valuations)
 			if state.id in prism_model.initial_states:
 				self.__init_ids.append(state.id)
 			# We only work on deterministic models. No mdps
@@ -337,7 +342,7 @@ class PrismExplorer(Explorer):
 
 	def state(self, idx: int):
 		assert self.__prism_model is not None
-		return "No valuations available"
+		return self.__valuations[idx]
 		# return self.__prism_model.states[idx].valuations
 
 	def export_transitions(self, filename: str):
