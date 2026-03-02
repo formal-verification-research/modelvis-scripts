@@ -13,15 +13,32 @@ class NpEncoder(json.JSONEncoder):
 			return int(obj)
 		return super(NpEncoder, self).default(obj)
 
+
 if __name__ == "__main__":
-	assert(len(sys.argv) >= 2)
-	export_transitions="--export_trans" in sys.argv
+	assert (len(sys.argv) >= 2)
+	export_transitions = "--export_trans" in sys.argv
 	ignore_abs = "--ignore_abs" in sys.argv
+	use_prism = "--prism" in sys.argv
 	filename = sys.argv[1]
-	e = Explorer(filename, use_abs = not ignore_abs)
-	# matrix = e.build()
+	model = None
+	stCount = None
+	e = None
+	if not use_prism:
+		print("Using custom JSON format")
+		e = Explorer(filename, use_abs=not ignore_abs)
+	else:
+		print(f"Loading prism model {filename}")
+		csl = None
+		for arg in sys.argv:
+			if arg.startswith("--csl="):
+				csl = arg.replace("--csl=", "")
+		if csl is None:
+			raise Exception("Must provide a CSL property if using PRISM mode.")
+		e = PrismExplorer(filename, csl)
 	model = e.createModel()
 	stCount = e.stateCount()
+
+	assert model is not None and stCount is not None and e is not None
 
 	cvr = CVASResult(3)
 

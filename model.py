@@ -26,12 +26,11 @@ class StateUpdate(object):
 	rate: int
 	vector: tuple
 
-	def __init__(self, rate, vector, needed=None, ignore=False, reactions=None) -> None:
+	def __init__(self, rate, vector, needed=None, ignore=False) -> None:
 		self.rate = rate
 		self.vector = tuple(vector)
 		self.needed = needed
-		self.ignore=ignore
-		self.rxn_id = reactions.get("id") if isinstance(reactions, dict) else None
+		self.ignore = ignore
 
 @dataclass_json
 @dataclass
@@ -47,11 +46,9 @@ is contained in the file cvas.schema.json
 	def __init__(self, data: dict) -> None:
 		self.dim = data["dim"]
 		self.initialState = tuple(data["initialState"])
-		self.stateUpdates = [
-			StateUpdate(d["rate"], d["vector"],
-			None if "needed" not in d else d["needed"],
-			False if "ignore" not in d else bool(d["ignore"]), d.get("reactions")) for d in data["stateUpdates"]
-		]
+		self.stateUpdates = [StateUpdate(d["rate"], d["vector"],
+                                   None if "needed" not in d else d["needed"],
+                                   False if "ignore" not in d else bool(d["ignore"])) for d in data["stateUpdates"]]
 
 	def __post_init__(self):
 		'''
@@ -78,10 +75,10 @@ class CVASResult(object):
 		self.dim = dim
 		self.frames = frames
 
-#	def __init__(self, filename: str) -> None:
-#		with open(filename, 'r') as f:
-#			data = json.load(f)
-#			validate_data(data, result_schema)
+# def __init__(self, filename: str) -> None:
+# with open(filename, 'r') as f:
+# data = json.load(f)
+# validate_data(data, result_schema)
 
 	def validate(self):
 		validate_data(self.to_dict(), result_schema)
@@ -113,6 +110,7 @@ class RandomAccessSparseMatrixBuilder:
 	'''
 	A wrapper class for random entry into storm's sparse matrix builder
 	'''
+
 	def __init__(self):
 		self.from_list = []
 		self.exit_rates = []
@@ -135,7 +133,7 @@ class RandomAccessSparseMatrixBuilder:
 				col = entry.col
 				val = entry.val
 				if row == col:
-					assert(len(self.from_list[row]) == 1)
+					assert (len(self.from_list[row]) == 1)
 					matrix_builder.add_next_value(row, col, 1.0)
 					break
 				matrix_builder.add_next_value(row, col, val)
@@ -162,13 +160,13 @@ class RandomAccessSparseMatrixBuilder:
 			# print(f"{i}: {self.exit_rates[i]}, {[str(entry) for entry in self.from_list[i]]}")
 			if len(self.from_list[i]) == 0:
 				self.exit_rates[i] = None
-				assert(self.exit_rates[i] is None)
+				assert (self.exit_rates[i] is None)
 				continue
 			max_entry = max(self.from_list[i])
 			max_rate = max_entry.val
 			if not self.exit_rates[i] >= max_rate:
 				print(f"Error: {self.exit_rates[i]} < {max_rate} (state index {i})")
-			assert(self.exit_rates[i] >= max_rate or math.isclose(max_rate, self.exit_rates[i]))
+			assert (self.exit_rates[i] >= max_rate or math.isclose(max_rate, self.exit_rates[i]))
 
 	def export_transitions(self, outfile: str):
 		with open(outfile, 'w') as of:
@@ -178,17 +176,16 @@ class RandomAccessSparseMatrixBuilder:
 					of.write(f"{i},{entry}\n")
 
 class Explorer(object):
-	def __init__(self, filename: str, dim_max = 20, use_abs: bool = True) -> None:
+	def __init__(self, filename: str, dim_max=50, use_abs: bool = True) -> None:
 		with open(filename, 'r') as f:
 			self.cvas = CVAS(json.loads(f.read()))
 		self.__currentState = self.cvas.initialState
 		self.__exploredStates = set()
 		self.__stateToIndex = dict()
-		self.__indexToState = dict() # could use an array. am lazy
+		self.__indexToState = dict()  # could use an array. am lazy
 		self.__dim_max = dim_max
 		self.__matrixBuilder = None
 		self.__use_abs = use_abs
-		self.__edge_reaction = {}
 
 	def build(self):
 		# build with bound
@@ -213,7 +210,7 @@ class Explorer(object):
 			# dequeue the first state
 			s, idx = queue.pop()
 			print(f"\rExploring state with ID {idx}...", end="")
-			assert(np.all([d >= 0 for d in s]))
+			assert (np.all([d >= 0 for d in s]))
 			# print(f"Exploring state {s} (idx: {idx})")
 			self.__exploredStates[s] = nextIdx
 			exitRate = 0.0
@@ -224,7 +221,7 @@ class Explorer(object):
 				self.__matrixBuilder.add_exit_rate(idx, 1.0)
 				continue
 			# Enqueue successors
-			for sNxt, rate, upd in successors:
+			for sNxt, rate in successors:
 				exitRate += rate
 				# Choose the next index if it exists
 				succIdx = None
@@ -236,9 +233,6 @@ class Explorer(object):
 					self.__stateToIndex[sNxt] = succIdx
 					self.__indexToState[succIdx] = sNxt
 				self.__matrixBuilder.add_next_value(idx, succIdx, rate)
-				 # store reaction label per edge (assuming no overlaps)
-				if (idx, succIdx) not in self.__edge_reaction:
-					self.__edge_reaction[(idx, succIdx)] = upd.rxn_id
 				# Only enqueue states we haven't explored yet
 				if not sNxt in self.__exploredStates:
 					queue.append((sNxt, succIdx))
@@ -254,16 +248,16 @@ class Explorer(object):
 				continue
 			if update.ignore and self.__use_abs:
 				# redirect to the absorbing state
-				successors.append((tuple([-1 for _ in state]), self.__rate(state, update.vector, update.rate), update))
+				successors.append((tuple([-1 for _ in state]), self.__rate(state, update.vector, update.rate)))
 				continue
 			nextCandidate = tuple(np.add(state, update.vector))
 			if not np.all([d >= 0 and d <= self.__dim_max for d in nextCandidate]):
 				continue
-			successors.append((nextCandidate, self.__rate(state, update.vector, update.rate), update))
+			successors.append((nextCandidate, self.__rate(state, update.vector, update.rate)))
 		return successors
 
 	def __rate(self, state: tuple, update: tuple, rConst: float):
-		assert(len(state) == len(update))
+		assert (len(state) == len(update))
 		return rConst * np.prod([state[i] ** max(-update[i], 0) for i in range(len(state))])
 
 	def stateCount(self) -> int:
@@ -272,7 +266,7 @@ class Explorer(object):
 		return self.__matrixBuilder.size()
 
 	def createLabels(self):
-		assert(self.__matrixBuilder is not None)
+		assert (self.__matrixBuilder is not None)
 		labeling = StateLabeling(self.__matrixBuilder.size())
 		# Add the initial state
 		labeling.add_label("init")
@@ -298,33 +292,64 @@ class Explorer(object):
 		return self.__indexToState[idx]
 
 	def export_transitions(self, filename: str):
-		"""
-			Writes:
-			  {
-				"states": [[...], ...],
-				"transitions": [
-				  {"source": i, "target": j, "rate": r, "reaction": "R1"},
-				  ...
-				]
-			  }
-			"""
+		assert self.__matrixBuilder is not None
+		self.__matrixBuilder.export_transitions(filename)
+
+class PrismExplorer(Explorer):
+	def __init__(self, prism_filename: str, csl_prop: str) -> None:
+		# No need to call super.
+		self.__program = stormpy.parse_prism_program(prism_filename, prism_compat=True)
+		self.__properties = stormpy.parse_properties_for_prism_program(csl_prop, self.__program, None)
+		self.__matrixBuilder = None
+		self.__init_ids = []
+		self.__valuations = []
+
+	def build(self):
+		options = stormpy.BuilderOptions()
+		options.set_build_state_valuations()
+		self.__init_ids = []
+		self.__valuations = []
+		prism_model = stormpy.build_sparse_model_with_options(self.__program, options)
+		# We do not need to do a DFS or anything similar because we already have all of the states to iterate over
+		self.__matrixBuilder = RandomAccessSparseMatrixBuilder()
+		for state in prism_model.states:
+			self.__valuations.append(state.valuations)
+			if state.id in prism_model.initial_states:
+				self.__init_ids.append(state.id)
+			# We only work on deterministic models. No mdps
+			assert len(state.actions) == 1
+			row = state.id
+			for action in state.actions:
+				for transition in action.transitions:
+					col = transition.column
+					rate = transition.value()
+					self.__matrixBuilder.add_next_value(row, col, rate)
+		self.__prism_model = prism_model
+		return self.__matrixBuilder.build()
+
+	def createLabels(self):
+		assert (self.__matrixBuilder is not None)
+		labeling = StateLabeling(self.__matrixBuilder.size())
+		# Add the initial state
+		labeling.add_label("init")
+		for init_id in self.__init_ids:
+			labeling.add_label_to_state("init", init_id)
+		for state in self.__prism_model.states:
+			label = f"state_{state.id}"
+			labeling.add_label(label)
+			labeling.add_label_to_state(label, state.id)
+		return labeling
+
+	def state(self, idx: int):
+		assert self.__prism_model is not None
+		return self.__valuations[idx]
+		# return self.__prism_model.states[idx].valuations
+
+	def export_transitions(self, filename: str):
+		assert self.__matrixBuilder is not None
+		self.__matrixBuilder.export_transitions(filename)
+
+	def stateCount(self) -> int:
 		if self.__matrixBuilder is None:
-			raise Exception("Call build() or createModel() before exporting.")
-
-		# states in index order
-		n_states = max(self.__indexToState.keys()) + 1 if self.__indexToState else 0
-		states = [[int(x) for x in self.__indexToState[i]] for i in range(n_states)]
-
-		transitions = []
-		for src, row in enumerate(self.__matrixBuilder.from_list):
-			for entry in row:
-				tgt = int(entry.col)
-				transitions.append({
-					"source": int(src),
-					"target": tgt,
-					"rate": float(entry.val),
-					"reaction": self.__edge_reaction.get((int(src), tgt))
-				})
-
-		with open(filename, "w", encoding="utf-8") as f:
-			json.dump({"states": states, "transitions": transitions}, f, indent=4)
+			raise Exception("Must build model first!")
+		return self.__matrixBuilder.size()
